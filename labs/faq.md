@@ -55,6 +55,13 @@
     increase this limit on Windows 10, version 1607 or later, by following
     the [instructions](https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation).
 
+- _**MacOS** installation_
+
+  - If you encounter issues with SSL certificates (_certificate verify failed:
+    self-signed certificate in certificate chain_), you probably need to run the
+    `Install Certificates.command`, which should be executed after installation;
+    see https://docs.python.org/3/using/mac.html#installation-steps.
+
 - _**GPU** support on Linux and Windows_
 
   PyTorch supports NVIDIA GPU or AMD GPU out of the box, you just need to select
@@ -252,13 +259,25 @@
 
 ### TOCEntry: TensorBoard
 
+- _Should TensorFlow be installed when using TensorBoard?_
+
+  When TensorBoard starts, it warns about a reduced feature set because of
+  missing TensorFlow, notably
+  ```
+  TensorFlow installation not found - running with reduced feature set.
+  ```
+  Do not worry about the warning, there is **no need** to install TensorFlow.
+
 - _Cannot start TensorBoard after installation_
 
-  If `tensorboard` executable cannot be found, make sure the directory with pip installed
-  packages is in your PATH (that directory is either in your virtual environment
-  if you use a virtual environment, or it should be `~/.local/bin` on Linux
-  and `%UserProfile%\AppData\Roaming\Python\Python311` and
-  `%UserProfile%\AppData\Roaming\Python\Python311\Scripts` on Windows).
+  If you cannot run the `tensorboard` command after installation, it is most
+  likely not in your PATH. You can either:
+  - start tensorboard using `python3 -m tensorboard.main --logdir logs`, or
+  - add the directory with pip installed packages to your PATH (that directory
+    is either `bin`/`Scripts` in your virtual environment if you use a virtual
+    environment, or it should be `~/.local/bin` on Linux and
+    `%UserProfile%\AppData\Roaming\Python\Python311` and
+    `%UserProfile%\AppData\Roaming\Python\Python311\Scripts` on Windows).
 
 - _What can be logged in TensorBoard?_
   See the documentation of the [`SummaryWriter`](https://pytorch.org/docs/stable/tensorboard.html#torch.utils.tensorboard.writer.SummaryWriter).

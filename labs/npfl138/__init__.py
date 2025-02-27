@@ -8,9 +8,11 @@
 from .trainable_module import TrainableModule
 
 # Datasets
+from .datasets.gym_cartpole_dataset import GymCartpoleDataset
 from .datasets.mnist import MNIST
 from .transformed_dataset import TransformedDataset
 
 # Utils
 from .initializers_override import global_keras_initializers
 from .startup import startup
+from .version import __version__, require_version
