@@ -30,7 +30,7 @@ class Model(torch.nn.Module):
         self._args = args
 
         self._W1 = torch.nn.Parameter(
-            torch.randn(MNIST.W * MNIST.H * MNIST.C, args.hidden_layer) * 0.1,
+            torch.randn(MNIST.C * MNIST.H * MNIST.W, args.hidden_layer) * 0.1,
             requires_grad=True,  # This is the default.
         )
         self._b1 = torch.nn.Parameter(torch.zeros(args.hidden_layer))
@@ -60,9 +60,9 @@ class Model(torch.nn.Module):
 
     def train_epoch(self, dataset: MNIST.Dataset) -> None:
         self.train()
-        for batch in dataset.batches(self._args.batch_size):
+        for batch in dataset.batches(self._args.batch_size, shuffle=True):
             # The batch contains
-            # - batch["images"] with shape [?, MNIST.H, MNIST.W, MNIST.C]
+            # - batch["images"] with shape [?, MNIST.C, MNIST.H, MNIST.W]
             # - batch["labels"] with shape [?]
             # Size of the batch is `self._args.batch_size`, except for the last, which
             # might be smaller.
@@ -106,7 +106,7 @@ class Model(torch.nn.Module):
             correct = 0
             for batch in dataset.batches(self._args.batch_size):
                 # TODO: Compute the logits of the batch images as in the training,
-                # and then convert them to Numpy with `.numpy(force=True`).
+                # and then convert them to Numpy with `.numpy(force=True)`.
                 logits = ...
 
                 # TODO(sgd_backpropagation): Evaluate how many batch examples were predicted
@@ -143,6 +143,8 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
         model = model.to(device="cuda")
     elif torch.mps.is_available():
         model = model.to(device="mps")
+    elif torch.xpu.is_available():
+        model = model.to(device="xpu")
 
     for epoch in range(args.epochs):
         # TODO(sgd_backpropagation): Run the `train_epoch` with `mnist.train` dataset
