@@ -84,11 +84,47 @@ def main(args: argparse.Namespace) -> dict[str, float]:
     #   learning rate to the console and to TensorBoard. Additionally, you can find out
     #   the next learning rate to be used by printing `model.scheduler.get_last_lr()[0]`.
     #   Therefore, after the training, this value should be `args.learning_rate_final`.
-    ...
-
+    
+    if args.optimizer == "SGD":
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr = args.learning_rate,
+            momentum = args.momentum if args.momentum else 0, 
+            nesterov = True if args.momentum else False   
+        )
+    elif args.optimizer == "Adam":
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr = args.learning_rate
+        )
+    
+    scheduler = None
+    if args.decay and args.learning_rate_final:
+        total_steps = len(train) * args.epochs 
+        
+        if args.decay == "linear":
+            scheduler = torch.optim.lr_scheduler.LinearLR(
+                optimizer,
+                start_factor = 1,
+                end_factor = args.learning_rate_final / args.learning_rate,
+                total_iters = total_steps
+            )
+        elif args.decay == "exponential":
+            gamma = (args.learning_rate_final / args.learning_rate) ** (1 / total_steps)
+            scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, 
+                gamma = gamma
+            )
+        elif args.decay == "cosine":
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max = total_steps,
+                eta_min = args.learning_rate_final
+            )
+    
     model.configure(
-        optimizer=...,
-        scheduler=...,
+        optimizer=optimizer,
+        scheduler=scheduler,
         loss=torch.nn.CrossEntropyLoss(),
         metrics={"accuracy": torchmetrics.Accuracy("multiclass", num_classes=MNIST.LABELS)},
         logdir=args.logdir,

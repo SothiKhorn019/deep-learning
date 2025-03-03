@@ -30,7 +30,7 @@ class Model(torch.nn.Module):
         self._args = args
 
         self._W1 = torch.nn.Parameter(
-            torch.randn(MNIST.W * MNIST.H * MNIST.C, args.hidden_layer) * 0.1,
+            torch.randn(MNIST.C * MNIST.H * MNIST.W, args.hidden_layer) * 0.1,
             requires_grad=True,  # This is the default.
         )
         self._b1 = torch.nn.Parameter(torch.zeros(args.hidden_layer))
@@ -39,8 +39,11 @@ class Model(torch.nn.Module):
         # - _W2, which is a parameter of size `[args.hidden_layer, MNIST.LABELS]`,
         #   initialized to `torch.randn` value with standard deviation 0.1,
         # - _b2, which is a parameter of size `[MNIST.LABELS]` initialized to zeros.
-        self._W2 = ...
-        self._b2 = ...
+        self._W2 = torch.nn.Parameter(
+            torch.randn(args.hidden_layer, MNIST.LABELS) * 0.1,
+            requires_grad=True
+        )
+        self._b2 = torch.nn.Parameter(torch.zeros(MNIST.LABELS))
 
     def forward(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # TODO(sgd_backpropagation): Define the computation of the network. Notably:
@@ -56,13 +59,23 @@ class Model(torch.nn.Module):
         # TODO: In order to support manual gradient computation, you should
         # return not only the output layer, but also the hidden layer after applying
         # tanh, and the input layer after reshaping.
-        return ..., ..., ...
+        inputs = inputs.to(torch.float32)
+        inputs /= 255
+        inputs = inputs.view(inputs.shape[0], -1)
+        
+        # First layer
+        hidden = torch.tanh(inputs @ self._W1 + self._b1)
+        
+        # Output layer
+        outputs = hidden @ self._W2 + self._b2
+        
+        return inputs, hidden, outputs
 
     def train_epoch(self, dataset: MNIST.Dataset) -> None:
         self.train()
-        for batch in dataset.batches(self._args.batch_size):
+        for batch in dataset.batches(self._args.batch_size, shuffle=True):
             # The batch contains
-            # - batch["images"] with shape [?, MNIST.H, MNIST.W, MNIST.C]
+            # - batch["images"] with shape [?, MNIST.C, MNIST.H, MNIST.W]
             # - batch["labels"] with shape [?]
             # Size of the batch is `self._args.batch_size`, except for the last, which
             # might be smaller.
@@ -71,8 +84,8 @@ class Model(torch.nn.Module):
             # This is needed, because the data is currently on CPU, but the model might
             # be on a GPU. You can move the data using the `.to(device)` method, and you
             # can obtain the device of the model using for example `self._W1.device`.
-            images = batch["images"].to(...)
-            labels = batch["labels"].to(...)
+            images = batch["images"].to(self._W1.device)
+            labels = batch["labels"].to(self._W1.device).long()
 
             # TODO: Contrary to `sgd_backpropagation`, the goal here is to compute
             # the gradient manually, without calling `.backward()`. ReCodEx disables
@@ -80,10 +93,10 @@ class Model(torch.nn.Module):
             #
             # Start by computing the input layer, the hidden layer, and the output layer
             # of the batch images using `self(...)`.
-            inputs, hidden, logits = ...
+            inputs, hidden, logits = self(images)
 
             # TODO(sgd_backpropagation): Compute the probabilities of the batch images using `torch.softmax`.
-            probabilities = ...
+            probabilities = torch.softmax(logits, dim=1)
 
             # TODO: Compute the gradient of the loss with respect to all
             # parameters. The loss is computed as in `sgd_backpropagation`.
@@ -95,9 +108,27 @@ class Model(torch.nn.Module):
             #   `A[:, :, torch.newaxis] * B[:, torch.newaxis, :]`
             # or with
             #   `torch.einsum("bi,bj->bij", A, B)`.
-
+            
+            # One-hot encode labels
+            one_hot_labels = torch.nn.functional.one_hot(labels, num_classes=MNIST.LABELS).float()
+            
+            loss_gradient = probabilities - one_hot_labels
+            
+            # Compute gradients for all parameters
+            gradient_W2 = torch.einsum("bi,bj->ij", hidden, loss_gradient) / images.shape[0]
+            gradient_b2 = loss_gradient.mean(dim=0)
+            
+            hidden_gradient = loss_gradient @ self._W2.T * (1 - hidden**2)
+            gradient_W1 = torch.einsum("bi,bj->ij", inputs, hidden_gradient) / images.shape[0]
+            gradient_b1 = hidden_gradient.mean(dim=0)
+            
             # TODO: Perform the SGD update with learning rate `self._args.learning_rate`
             # for all model parameters.
+            with torch.no_grad():
+                self._W1 -= self._args.learning_rate * gradient_W1
+                self._b1 -= self._args.learning_rate * gradient_b1
+                self._W2 -= self._args.learning_rate * gradient_W2
+                self._b2 -= self._args.learning_rate * gradient_b2
 
     def evaluate(self, dataset: MNIST.Dataset) -> float:
         self.eval()
@@ -106,13 +137,20 @@ class Model(torch.nn.Module):
             correct = 0
             for batch in dataset.batches(self._args.batch_size):
                 # TODO: Compute the logits of the batch images as in the training,
-                # and then convert them to Numpy with `.numpy(force=True`).
-                logits = ...
+                # and then convert them to Numpy with `.numpy(force=True)`.
+                images = batch["images"].to(self._W1.device)
+                labels = batch["labels"].to(self._W1.device)
+                
+                _, _, logits = self(images)
+                logits = logits.cpu().numpy(force=True)
 
                 # TODO(sgd_backpropagation): Evaluate how many batch examples were predicted
                 # correctly and increase `correct` variable accordingly, assuming
                 # the model predicts the class with the highest logit/probability.
-                correct += ...
+                
+                # Get predicted class (argmax)
+                predictions = np.argmax(logits, axis=1)
+                correct += np.sum(predictions == labels.cpu().numpy())
 
         return correct / len(dataset)
 
@@ -143,18 +181,20 @@ def main(args: argparse.Namespace) -> tuple[float, float]:
         model = model.to(device="cuda")
     elif torch.mps.is_available():
         model = model.to(device="mps")
+    elif torch.xpu.is_available():
+        model = model.to(device="xpu")
 
     for epoch in range(args.epochs):
         # TODO(sgd_backpropagation): Run the `train_epoch` with `mnist.train` dataset
-        ...
+        model.train_epoch(mnist.train)
 
         # TODO(sgd_backpropagation): Evaluate the dev data using `evaluate` on `mnist.dev` dataset
-        dev_accuracy = ...
+        dev_accuracy = model.evaluate(mnist.dev)
         print("Dev accuracy after epoch {} is {:.2f}".format(epoch + 1, 100 * dev_accuracy), flush=True)
         writer.add_scalar("dev/accuracy", 100 * dev_accuracy, epoch + 1)
 
     # TODO(sgd_backpropagation): Evaluate the test data using `evaluate` on `mnist.test` dataset
-    test_accuracy = ...
+    test_accuracy = model.evaluate(mnist.test)
     print("Test accuracy after epoch {} is {:.2f}".format(epoch + 1, 100 * test_accuracy), flush=True)
     writer.add_scalar("test/accuracy", 100 * test_accuracy, epoch + 1)
 

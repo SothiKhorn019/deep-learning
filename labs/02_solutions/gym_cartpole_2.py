@@ -136,19 +136,24 @@ def main(args: argparse.Namespace) -> torch.nn.Module | None:
 
         # TODO: Configure the model for training.
         model.configure(
-            optimizer = torch.optim.Adam(
+            optimizer=torch.optim.Adam(
                 model.parameters(),
-                lr = 0.001,
+                lr=0.001,  # Lower learning rate for more stable training
             ),
-            loss = torch.nn.CrossEntropyLoss(),
-            metrics = { "accuracy": torchmetrics.Accuracy("multiclass", num_classes=2) },
-            logdir = args.logdir,
+            loss=torch.nn.CrossEntropyLoss(),
+            metrics={"accuracy": torchmetrics.Accuracy("multiclass", num_classes=2)},
+            logdir=args.logdir,
         )
 
         # TODO: Train the model. Note that you can pass a list of callbacks to the
         # `fit` method, each being a callable accepting the model, epoch, and logs.
         # Such callbacks are called after every epoch and if they modify the
         # logs dictionary, the values are logged on the console and to TensorBoard.
+        
+        # callbacks = [
+        #     lambda model, epoch, logs : model.save_weights(f"{args.model}_epoch{epoch}.pt")
+        # ]
+        # model.fit(train, epochs=args.epochs, callbacks=callbacks)
         model.fit(train, epochs=args.epochs, callbacks=[])
 
         # Save the model, both the hyperparameters and the parameters. If you
