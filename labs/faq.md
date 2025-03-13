@@ -74,26 +74,26 @@
 
 - _How to apply for MetaCentrum account?_
 
-  After reading the [Terms and conditions](https://docs.metacentrum.cz/access/terms/),
-  you can [apply for an account here](https://docs.metacentrum.cz/access/account/).
+  After reading the [Terms and conditions](https://docs.metacentrum.cz/en/docs/access/terms),
+  you can [apply for an account here](https://docs.metacentrum.cz/en/docs/access/account).
 
   After your account is created, please make sure that the directories
   containing your solutions are always **private**.
 
-- _How to activate Python 3.10 on MetaCentrum?_
+- _How to activate Python 3.11 on MetaCentrum?_
 
-  On Metacentrum, currently the newest available Python is 3.10, which you need
+  On Metacentrum, currently the newest available Python is 3.11, which you need
   to activate in every session by running the following command:
   ```
-  module add python/python-3.10.4-intel-19.0.4-sc7snnf
+  module add python/3.11.11-gcc-10.2.1-555dlyc
   ```
 
 - _How to install the required virtual environment on MetaCentrum?_
 
   To create a virtual environment, you first need to decide where it will
   reside. Either you can find a permanent storage, where you have large-enough
-  [quota](https://docs.metacentrum.cz/data/quotas/), or you can [use scratch
-  storage for a submitted job](https://docs.metacentrum.cz/computing/infrastructure/scratch-storages/).
+  [quota](https://docs.metacentrum.cz/en/docs/access/account), or you can [use scratch
+  storage for a submitted job](https://docs.metacentrum.cz/en/docs/computing/infrastructure/scratch-storages).
 
   TL;DR:
   - Run an interactive CPU job, asking for 16GB scratch space:
@@ -114,30 +114,28 @@
 
   - Finally, create the virtual environment and install PyTorch in it:
     ```
-    module add python/python-3.10.4-intel-19.0.4-sc7snnf
+    module add python/3.11.11-gcc-10.2.1-555dlyc
     python3 -m venv CHOSEN_VENV_DIR
-    CHOSEN_VENV_DIR/bin/pip install --no-cache-dir --upgrade pip setuptools
     CHOSEN_VENV_DIR/bin/pip install --no-cache-dir --extra-index-url=https://download.pytorch.org/whl/cu118 npfl138
     ```
 
 - _How to run a GPU computation on MetaCentrum?_
 
   First, read the official MetaCentrum documentation:
-  [Basic terms](https://docs.metacentrum.cz/computing/concepts/),
-  [Run simple job](https://docs.metacentrum.cz/computing/run-basic-job/),
-  [GPU computing](https://docs.metacentrum.cz/computing/gpu-comput/gpu-job/),
-  [GPU clusters](https://docs.metacentrum.cz/computing/gpu-comput/clusters/).
+  [Basic terms](https://docs.metacentrum.cz/en/docs/computing/concepts),
+  [Run simple job](https://docs.metacentrum.cz/en/docs/computing/run-basic-job),
+  [GPU computing](https://docs.metacentrum.cz/en/docs/computing/gpu-comput/gpu-job),
+  [GPU clusters](https://docs.metacentrum.cz/en/docs/computing/gpu-comput/clusters).
 
-  TL;DR: To run an interactive GPU job with 1 CPU, 1 GPU, 8GB RAM, and 16GB scatch
+  TL;DR: To run an interactive GPU job with 1 CPU, 1 GPU, 8GB RAM, and 32GB scatch
   space, run:
   ```
-  qsub -q gpu -l select=1:ncpus=1:ngpus=1:mem=8gb:scratch_local=16gb -I
+  qsub -l select=1:ncpus=1:ngpus=1:mem=8gb:scratch_local=32gb -I
   ```
 
   To run a script in a non-interactive way, replace the `-I` option with the script to be executed.
 
-  If you want to run a CPU-only computation, remove the `-q gpu` and `ngpus=1:`
-  from the above commands.
+  If you want to run a CPU-only computation, remove the `ngpus=1:` from the above commands.
 
 ### TOCEntry: AIC
 

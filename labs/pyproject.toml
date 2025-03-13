@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "npfl138"
-version = "2425.3.2"
+version = "2425.4.0"
 authors = [
   { name="Milan Straka", email="straka@ufal.mff.cuni.cz" },
 ]
@@ -25,7 +25,7 @@ dependencies = [
   # Used by torchaudio for CTC decoding
   "flashlight-text ~= 0.0.7",
   # Gymnasium package including the pygame used for GUI
-  "gymnasium ~= 1.0.0",
+  "gymnasium ~= 1.1.1",
   "pygame ~= 2.6.1",
   # TensorBoard for inspecting logs
   "tensorboard ~= 2.18.0",
