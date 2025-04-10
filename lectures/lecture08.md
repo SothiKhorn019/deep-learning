@@ -3,8 +3,14 @@
 #### Slides: https://ufal.mff.cuni.cz/~straka/courses/npfl138/2425/slides/?08
 #### Reading: https://ufal.mff.cuni.cz/~straka/courses/npfl138/2425/slides.pdf/npfl138-2425-08.pdf, PDF Slides
 #### Video: https://lectures.ms.mff.cuni.cz/video/rec/npfl138/2425/npfl138-2425-08-czech.mp4, CZ Lecture
+#### Video: https://lectures.ms.mff.cuni.cz/video/rec/npfl138/2425/npfl138-2425-08-czech.practicals.mp4, CZ Practicals
 #### Video: https://lectures.ms.mff.cuni.cz/video/rec/npfl138/2425/npfl138-2425-08-english.mp4, EN Lecture
+#### Video: https://lectures.ms.mff.cuni.cz/video/rec/npfl138/2425/npfl138-2425-08-english.practicals.mp4, EN Practicals
 #### Questions: #lecture_8_questions
+#### Lecture assignment: tensorboard_projector
+#### Lecture assignment: tagger_ner
+#### Lecture assignment: ctc_manual
+#### Lecture assignment: speech_recognition
 
 - Structured prediction
 - Connectionist Temporal Classification (CTC) loss [[Connectionist Temporal Classification: Labelling Unsegmented Sequence Data with Recurrent Neural Networks](https://www.cs.toronto.edu/~graves/icml_2006.pdf)]
