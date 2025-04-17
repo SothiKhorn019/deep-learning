@@ -19,18 +19,19 @@
         - `strings`: a Python list containing input sentences, each being
           a list of strings (words/lemmas/tags)
         - `string_vocab`: a [npfl138.Vocabulary][] object capable of mapping words to
-          indices. It is constructed on the train set and shared by the dev
-          and test sets
+          indices. It is constructed on the train set (or its subset when `max_sentences`
+          is set) and shared by the dev and test sets
         - `char_vocab`: a [npfl138.Vocabulary][] object capable of mapping characters
-          to  indices. It is constructed on the train set and shared by the dev
-          and test sets
+          to  indices. It is constructed on the train set (or its subset when `max_sentences`
+          is set) and shared by the dev and test sets
     - `cle_batch`: a method for creating inputs for character-level embeddings.
       It takes a list of sentences, each being a list of string words, and produces
       a tuple of two tensors:
         - `unique_words` with shape `[num_unique_words, max_word_length]` containing
-          each unique word as a sequence of character ids
+          each unique word as a sequence of character ids, using MorphoDataset.PAD for padding
         - `words_indices` with shape `[num_sentences, max_sentence_length]`
           containing for every word its index in `unique_words`
+    - `cle_batch_packed`: a variant of `cle_batch` returning packed instead of padded sequences
 """
 import os
 import sys
@@ -149,9 +150,11 @@ class MorphoDataset:
 
             Returns:
               unique_words: A tensor with shape `[num_unique_words, max_word_length]`
-                containing each unique word as a sequence of character ids.
+                containing each unique word as a sequence of character ids, using
+                `MorphoDataset.PAD` for padding.
               words_indices: A tensor with shape `[num_sentences, max_sentence_length]`
-                containing for every word from the batch its index in `unique_words`.
+                containing for every word from the batch its index in `unique_words`,
+                using `MorphoDataset.PAD` for padding.
             """
             unique_strings = list(set(word for sentence in words for word in sentence))
             unique_string_map = {word: index + 1 for index, word in enumerate(unique_strings)}
