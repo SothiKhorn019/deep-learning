@@ -56,8 +56,8 @@ parser.add_argument(
 
 
 def main(args: argparse.Namespace) -> None:
-    # device=torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device=torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Set random seed and number of threads
     npfl138.startup(args.seed, args.threads)
