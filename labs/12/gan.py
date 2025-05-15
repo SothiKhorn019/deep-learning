@@ -5,18 +5,19 @@ import os
 import re
 
 import torch
+import torchmetrics
 
 import npfl138
-npfl138.require_version("2425.11")
+npfl138.require_version("2425.12")
 from npfl138.datasets.mnist import MNIST
 
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
 parser.add_argument("--batch_size", default=50, type=int, help="Batch size.")
 parser.add_argument("--dataset", default="mnist", type=str, help="MNIST-like dataset to use.")
-parser.add_argument("--decoder_layers", default=[500, 500], type=int, nargs="+", help="Decoder layers.")
-parser.add_argument("--encoder_layers", default=[500, 500], type=int, nargs="+", help="Encoder layers.")
+parser.add_argument("--discriminator_layers", default=[128], type=int, nargs="+", help="Discriminator layers.")
 parser.add_argument("--epochs", default=50, type=int, help="Number of epochs.")
+parser.add_argument("--generator_layers", default=[128], type=int, nargs="+", help="Generator layers.")
 parser.add_argument("--recodex", default=False, action="store_true", help="Evaluation in ReCodEx.")
 parser.add_argument("--seed", default=42, type=int, help="Random seed.")
 parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
@@ -32,7 +33,7 @@ class TrainableDataset(npfl138.TransformedDataset):
         return image, image  # return the image both as the input and the target
 
 
-class VAE(npfl138.TrainableModule):
+class GAN(npfl138.TrainableModule):
     def __init__(self, args: argparse.Namespace) -> None:
         super().__init__()
 
@@ -42,70 +43,66 @@ class VAE(npfl138.TrainableModule):
             torch.zeros(args.z_dim, device=self.device),     # prior distribution on the current
             torch.ones(args.z_dim, device=self.device))      # device of the model.
 
-        # TODO: Define `self.encoder` as a `torch.nn.Sequential` module, which
-        # - takes input images with shape `[MNIST.C, MNIST.H, MNIST.W]`;
-        # - flattens them;
-        # - applies `len(args.encoder_layers)` dense layers with ReLU activation,
-        #   i-th layer with `args.encoder_layers[i]` units;
-        # - generates an output of shape `[2 * args.z_dim]` by applying an output
-        #   linear layer. During training, this output will be split into two,
-        #   the `z_mean` and then the logarithm of `z_sd`.
-        # You can use lazy layer or regular layers, but you should use them consistently;
-        # so either all your layers should be lazy, or all of them should be regular.
-        self.encoder = ...
-
-        # TODO: Define `self.decoder` as a `torch.nn.Sequential`, which
+        # TODO: Define `self.generator` as a `torch.nn.Sequential` module, which
         # - takes vectors of `[args.z_dim]` shape on input;
-        # - applies `len(args.decoder_layers)` dense layers with ReLU activation,
-        #   i-th layer with `args.decoder_layers[i]` units;
+        # - applies `len(args.generator_layers)` dense layers with ReLU activation,
+        #   i-th layer with `args.generator_layers[i]` units;
         # - applies output dense layer with `MNIST.C * MNIST.H * MNIST.W` units
         #   and sigmoid activation;
         # - uses `torch.nn.Unflatten` to reshape the output to `[MNIST.C, MNIST.H, MNIST.W]`.
-        self.decoder = ...
+        # You can use lazy layer or regular layers, but you should use them consistently;
+        # so either all your layers should be lazy, or all of them should be regular.
+        self.generator = ...
+
+        # TODO: Define `self.discriminator` as a `torch.nn.Sequential`, which
+        # - takes input images with shape `[MNIST.C, MNIST.H, MNIST.W]`;
+        # - flattens them;
+        # - applies `len(args.discriminator_layers)` dense layers with ReLU activation,
+        #   i-th layer with `args.discriminator_layers[i]` units;
+        # - applies output dense layer with one output and a suitable activation function.
+        self.discriminator = ...
 
     def train_step(self, xs: tuple[torch.Tensor], y: torch.Tensor) -> dict[str, torch.Tensor]:
         images = xs[0]
 
-        # TODO: Compute `z_mean` and `z_sd` of the given images using `self.encoder`.
-        # The `z_mean` is the first half of the output of the encoder; the `z_sd`
-        # is the second half of the output of the encoder passed through `torch.exp`.
-
-        # TODO: Sample `z` from a Normal distribution with mean `z_mean` and
-        # standard deviation `z_sd`. Start by creating corresponding
-        # distribution `torch.distributions.Normal(...)` and then run the
-        # `rsample()` method. The `rsample()` method performs sampling using
-        # the reparametrization trick, or fails when it is not supported
-        # by the distribution.
-
-        # TODO: Decode images using the sampled `z`.
-
-        # TODO: Compute `reconstruction_loss` using an appropriate loss from `torch.nn.functional`.
-        reconstruction_loss = ...
-
-        # TODO: Compute `latent_loss` as a mean of KL divergences of suitable distributions.
-        # Note that PyTorch offers `torch.distributions.kl.kl_divergence` computing
-        # the exact KL divergence of two given distributions.
-        latent_loss = ...
-
-        # TODO: Compute `loss` as a sum of the `reconstruction_loss` (multiplied by the number
-        # of pixels in an image) and the `latent_loss` (multiplied by self._z_dim).
-        loss = ...
-
-        # TODO: Perform a single step of the `self.optimizer` (both encoder and
-        # decoder parameters should be updated).
+        # TODO: Train the generator:
+        # - generate as many random latent samples as there are `images`, by a single call
+        #   to `self._z_prior.sample`;
+        # - pass the samples through the generator;
+        # - run discriminator on the generated images (keep it running in the training mode,
+        #   even if not updating its parameters, we want to perform possible BatchNorm in it);
+        # - compute `generator_loss` using `self.loss`, with ones as target labels.
+        # Then, perform a step of the generator optimizer stored in `self.optimizer["generator"]`.
         ...
 
-        # Return the mean of the overall loss, and the current reconstruction and latent losses.
-        loss = self.loss_tracker(loss)
-        return {"loss": loss, "reconstruction_loss": reconstruction_loss, "latent_loss": latent_loss}
+        # TODO: Train the discriminator:
+        # - first run the discriminator on `images`, storing the results in `discriminated_real`;
+        # - then process the images generated during the generator training, storing the results
+        #   in `discriminated_fake` (be careful to neither re-run the generator nor perform
+        #   backpropagation into the generator during the discriminator loss computation);
+        # - compute `discriminator_loss` by summing:
+        #   - `self.loss` on `discriminated_real` with suitable targets,
+        #   - `self.loss` on `discriminated_fake` with suitable targets.
+        # Then, perform a step of the discriminator optimizer stored in `self.optimizer["discriminator"]`.
+        ...
+
+        # TODO: Update the discriminator accuracy metric -- call the
+        # `self.metrics["discriminator_accuracy"].update` twice, with the same
+        # arguments the `self.loss` was called during discriminator loss computation.
+        ...
+
+        # Return the mean of the overall loss, the current discriminator and generator losses, and the metrics.
+        loss = self.loss_tracker(discriminator_loss + generator_loss)
+        return {"loss": loss, "discriminator_loss": discriminator_loss, "generator_loss": generator_loss,
+                **{metric: self.metrics[metric].compute() for metric in self.metrics}}
 
     def generate(self, epoch: int, logs: dict[str, float]) -> None:
         GRID = 20
 
-        self.decoder.eval()
+        self.generator.eval()
         with torch.no_grad(), torch.device(self.device):
             # Generate GRIDxGRID images.
-            random_images = self.decoder(self._z_prior().sample([GRID * GRID]))
+            random_images = self.generator(self._z_prior().sample([GRID * GRID]))
 
             # Generate GRIDxGRID interpolated images.
             if self._z_dim == 2:
@@ -117,7 +114,7 @@ class VAE(npfl138.TrainableModule):
                 starts, ends = self._z_prior().sample([2, GRID])
             interpolated_z = torch.cat(
                 [starts[i] + (ends[i] - starts[i]) * torch.linspace(0., 1., GRID).unsqueeze(-1) for i in range(GRID)])
-            interpolated_images = self.decoder(interpolated_z)
+            interpolated_images = self.generator(interpolated_z)
 
             # Stack the random images, then an empty column, and finally interpolated images.
             grid = torch.cat([
@@ -128,7 +125,7 @@ class VAE(npfl138.TrainableModule):
             self.get_tb_writer("train").add_image("images", grid, epoch)
 
 
-def main(args: argparse.Namespace) -> float:
+def main(args: argparse.Namespace) -> dict[str, float]:
     # Set the random seed and the number of threads.
     npfl138.startup(args.seed, args.threads)
     npfl138.global_keras_initializers()
@@ -145,17 +142,24 @@ def main(args: argparse.Namespace) -> float:
     train = TrainableDataset(mnist.train).dataloader(args.batch_size, shuffle=True, seed=args.seed)
 
     # Create the model and train it.
-    model = VAE(args)
+    model = GAN(args)
 
+    # TODO: Create Adam optimizers for the discriminator and the generator,
+    # and the loss function and metric for the discriminator.
     model.configure(
-        optimizer=torch.optim.Adam(model.parameters()),
+        optimizer={
+            "discriminator": ...,
+            "generator": ...,
+        },
+        loss=...,
+        metrics={"discriminator_accuracy": ...},
         logdir=args.logdir,
     )
 
-    logs = model.fit(train, epochs=args.epochs, callbacks=[VAE.generate])
+    logs = model.fit(train, epochs=args.epochs, callbacks=[GAN.generate])
 
-    # Return the training loss for ReCodEx to validate.
-    return logs["train_loss"]
+    # Return the loss and the discriminator accuracy for ReCodEx to validate.
+    return {metric: logs[metric] for metric in ["train_loss", "train_discriminator_accuracy"]}
 
 
 if __name__ == "__main__":
