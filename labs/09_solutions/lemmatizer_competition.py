@@ -124,20 +124,6 @@ def main(args: argparse.Namespace) -> None:
                 print(lemma_str, file=predictions_file)
             print(file=predictions_file)
 
-    # Evaluate on dev and test
-    dev_eval = MorphoDataset.evaluate(
-        os.path.join(args.logdir, "lemmatizer_competition.txt"),
-        dataset="dev",
-        task="lemmatizer",
-    )
-    test_eval = MorphoDataset.evaluate(
-        os.path.join(args.logdir, "lemmatizer_competition.txt"),
-        dataset="test",
-        task="lemmatizer",
-    )
-    print(f"Dev exact match: {dev_eval['exact_match']:.4f}")
-    print(f"Test exact match: {test_eval['exact_match']:.4f}")
-
 
 if __name__ == "__main__":
     main_args = parser.parse_args([] if "__file__" not in globals() else None)
