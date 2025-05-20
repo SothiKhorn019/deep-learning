@@ -33,6 +33,13 @@ _Note that your results may be slightly different, depending on your CPU type an
 ```
 Epoch 1/1 4.7s train_loss=1.1229 sample_mean=0.4163 sample_std=0.2942
 ```
+To make debugging easier, here are variances of the first batches of various quantities:
+```
+The torch.var of the first batch of noisy training images (model input): 1.0052
+The torch.var of the first batch of embedded times: 0.5865
+The torch.var of the first batch of target outputs during model training: 1.5766
+The torch.var of the first batch of model predictions during generate: 0.8083
+```
 
 2. `python3 flow_matching.py --epochs=1 --epoch_batches=10 --batch_size=12 --stages=3 --stage_blocks=1 --channels=12 --ema=0.8 --sampling_steps=7`
 ```
@@ -45,6 +52,6 @@ _Note that your results may be slightly different, depending on your CPU type an
 ![oxford_flowers102 samples](https://ufal.mff.cuni.cz/~straka/courses/npfl138/2425/demos/flow_matching-oxford_flowers102.webp)
 - `python3 flow_matching.py --dataset=lsun_bedrooms --epochs=100 --plot_each=10`
 ![lsun_bedrooms samples](https://ufal.mff.cuni.cz/~straka/courses/npfl138/2425/demos/flow_matching-lsun_bedrooms.webp)
-- `python3 flow_matching.py --dataset=ffhq --epochs=100 --plot_each=10`
+- `python3 flow_matching.py --dataset=ffhq --epochs=100 --stage_blocks=4 --batch_size=256 --plot_each=10`
 ![ffhq samples](https://ufal.mff.cuni.cz/~straka/courses/npfl138/2425/demos/flow_matching-ffhq.webp)
 #### Examples End:
