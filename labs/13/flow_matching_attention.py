@@ -13,6 +13,8 @@ from npfl138.datasets.image64_dataset import Image64Dataset
 
 parser = argparse.ArgumentParser()
 # These arguments will be set appropriately by ReCodEx, even if you change them.
+parser.add_argument("--attention_heads", default=8, type=int, help="Self-attention heads.")
+parser.add_argument("--attention_stages", default=2, type=int, help="Stages with self-attention.")
 parser.add_argument("--batch_size", default=64, type=int, help="Batch size.")
 parser.add_argument("--channels", default=32, type=int, help="CNN channels in the first stage.")
 parser.add_argument("--dataset", default="oxford_flowers102", type=str, help="Image64 dataset to use.")
@@ -42,7 +44,7 @@ class SinusoidalEmbedding(torch.nn.Module):
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         assert inputs.shape[-1] == 1
 
-        # TODO: Compute the sinusoidal embeddings of the inputs in `[0, 1]` range.
+        # TODO(flow_matching): Compute the sinusoidal embeddings of the inputs in `[0, 1]` range.
         # The `inputs` have shape `[..., 1]`, and the produced embeddings should have
         # shape `[..., self.dim]`, where for `0 <= i < self.dim/2`,
         # - the value on index `[..., i]` should be
@@ -56,7 +58,7 @@ class ResidualBlock(torch.nn.Module):
     """A residual block with two 3x3 convolutions and a time embedding."""
     def __init__(self, width: int) -> None:
         super().__init__()
-        # TODO: In the whole assignment, use _lazy_ convolutional and _lazy_
+        # TODO(flow_matching): In the whole assignment, use _lazy_ convolutional and _lazy_
         # linear layers. Furthermore, create the layers in the exact same order
         # as mentioned in the comment.
         #
@@ -82,19 +84,45 @@ class ResidualBlock(torch.nn.Module):
         ...
 
     def forward(self, images: torch.Tensor, times: torch.Tensor) -> torch.Tensor:
-        # TODO: Implement the forward pass of the residual block. The `times` has
+        # TODO(flow_matching): Implement the forward pass of the residual block. The `times` has
         # shape `[batch_size, channels]` with `channels` equal to the number of
         # `images` channels, so it must be broadcasted to every image position.
         raise NotImplementedError()
 
 
+class SelfAttentionBlock(torch.nn.Module):
+    def __init__(self, channels: int, heads: int) -> None:
+        super().__init__()
+        # TODO: Implement a self-attention block, which works as follows:
+        # - It starts by passing the input through a group normalization layer
+        #   with `channels` channels and `min(channels // 4, 16)` groups.
+        # - Then, the result is interpreted as a sequence of feature vectors
+        #   (by moving the channel dimension to the end and reshaping to
+        #   `[batch_size, height * width, channels]`).
+        # - The result is processed by a multi-head attention layer
+        #   `torch.nn.MultiheadAttention(channels, heads, batch_first=True)`.
+        # - The result is reshaped back to the original shape (by moving
+        #   the channel dimension back to the front and reshaping suitably).
+        # - Finally, the sum of the original input and the result of the
+        #   reshaped attention is returned.
+        ...
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        # TODO: Implement the forward pass of the self-attention block.
+        raise NotImplementedError()
+
+        return hidden + inputs
+
+
 class DownscalingBlock(torch.nn.Module):
     """Downscaling block returning both the features of original and downscaled size."""
-    def __init__(self, residual_blocks: int, width: int) -> None:
+    def __init__(self, residual_blocks: int, width: int, attention_heads: int | None = None) -> None:
         super().__init__()
-        # TODO: The downscaling block starts with `residual_blocks` number of `ResidualBlock`s,
-        # and then passes the result through a 3x3 convolution with `width << 1` channels,
-        # stride 2, and padding 1.
+        # TODO(flow_matching): The downscaling block starts with `residual_blocks` number of `ResidualBlock`s.
+        # TODO: Then, if `attention_heads` is not None, a SelfAttentionBlock with the
+        # `width` channels and `attention_heads` heads is called.
+        # TODO(flow_matching): Finally, the result is passed through a 3x3 convolution with
+        # `width << 1` channels, stride 2, and padding 1.
         ...
 
     def forward(self, images: torch.Tensor, times: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -105,13 +133,15 @@ class DownscalingBlock(torch.nn.Module):
 
 class UpscalingBlock(torch.nn.Module):
     """Upscaling block using a skip connection from the corresponding downscaling block."""
-    def __init__(self, residual_blocks: int, width: int) -> None:
+    def __init__(self, residual_blocks: int, width: int, attention_heads: int | None = None) -> None:
         super().__init__()
-        # TODO: The upscaling block starts with a transposed convolution with kernel size 4,
+        # TODO(flow_matching): The upscaling block starts with a transposed convolution with kernel size 4,
         # stride 2, and padding 1, which processes the input images. Then, the skip connection
         # from the downscaling block is passed through a 3x3 convolution with `width` channels
         # and the "same" padding. Finally, both results are added together and passed through
         # `residual_blocks` number of `ResidualBlock`s.
+        # TODO: Lastly, if `attention_heads` is not None, a SelfAttentionBlock with the
+        # `width` channels and `attention_heads` heads is called.
         ...
 
     def forward(self, images: torch.Tensor, skip_connections: torch.Tensor, times: torch.Tensor) -> torch.Tensor:
@@ -121,12 +151,11 @@ class UpscalingBlock(torch.nn.Module):
 
 class UNet(torch.nn.Module):
     """The U-Net architecture used in the flow matching model."""
-    def __init__(self, channels: int, stage_blocks: int, stages: int) -> None:
+    def __init__(self, channels: int, stage_blocks: int, stages: int, attention_stages: int, attention_heads: int):
         super().__init__()
-        # TODO: When processing the input images and the input times, start by
-        # passing the times through the `SinusoidalEmbedding` layer with
-        # dimension of `channels`; the result is then passed to all later layers
-        # that require the time embedding.
+        # TODO(flow_matching): When processing the input images and the input times, start by
+        # passing the times through the `SinusoidalEmbedding` layer; the result
+        # is then passed to all later layers that require the time embedding.
         #
         # The U-Net architecture consists of the following layers:
         # - the initial 3x3 convolution with `channels` channels, the "same"
@@ -143,6 +172,15 @@ class UNet(torch.nn.Module):
         #   from the corresponding downscaling block;
         # - finally, the result is passed through an output 3x3 convolution with
         #   `C` channels and the "same" padding.
+        #
+        # TODO: In addition to the above, a number of self-attention blocks should be
+        # used in this assignment. Notably:
+        # - the last `attention_stages` number of the downscaling blocks should employ
+        #   a self-attention block;
+        # - a `SelfAttentionBlock` with `channels << stages` channels and `attention_heads`
+        #   heads should be used (and created) right after the middle block;
+        # - the first `attention_stages` number of the upscaling blocks should employ
+        #   a self-attention block.
         ...
 
     def forward(self, images: torch.Tensor, times: torch.Tensor) -> None:
@@ -182,7 +220,7 @@ class FlowMatching(npfl138.TrainableModule):
         noises = torch.randn_like(images)
         times = torch.rand(images.shape[0], 1, device=images.device)
 
-        # TODO: Perform a training step.
+        # TODO(flow_matching): Perform a training step.
         # - Start by normalizing the input images using the `normalize_image` method.
         # - Then compute the noisy images used as the model input, using the normalized
         #   images, `noises`, and `times`.
@@ -195,12 +233,12 @@ class FlowMatching(npfl138.TrainableModule):
         with torch.no_grad():
             self.optimizer.step()
 
-            # TODO: If the EMA model is not initialized, create it as a copy of the current model
+            # TODO(flow_matching): If the EMA model is not initialized, create it as a copy of the current model
             # using `copy.deepcopy`. Also call `requires_grad_(False)` on the newly created model.
             if self._ema_model is None:
                 self._ema_model = ...
             for ema_variable, variable in zip(self._ema_model.parameters(), self._model.parameters()):
-                # TODO: Perform the exponential moving average, modifying the `ema_variable` in place
+                # TODO(flow_matching): Perform the exponential moving average, modifying the `ema_variable` in place
                 # by multiplying it by `self._ema_momentum` and adding the `variable` multiplied by
                 # `(1 - self._ema_momentum)`.
                 ...
@@ -211,7 +249,7 @@ class FlowMatching(npfl138.TrainableModule):
         images = initial_noise.to(self.device)
         trajectory = []
 
-        # TODO: Perform the sampling process using the `self._ema_model` and the
+        # TODO(flow_matching): Perform the sampling process using the `self._ema_model` and the
         # Euler method (the one described on the slides) and `steps` number of steps.
         # You should compute:
         # - `images`, which are the final generated images, and

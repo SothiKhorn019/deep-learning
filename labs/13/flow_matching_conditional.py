@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=64, type=int, help="Batch size.")
 parser.add_argument("--channels", default=32, type=int, help="CNN channels in the first stage.")
 parser.add_argument("--dataset", default="oxford_flowers102", type=str, help="Image64 dataset to use.")
+parser.add_argument("--downscale", default=8, type=int, help="Conditional downscale factor.")
 parser.add_argument("--ema", default=0.999, type=float, help="Exponential moving average momentum.")
 parser.add_argument("--epoch_batches", default=1_000, type=int, help="Batches per epoch.")
 parser.add_argument("--epochs", default=100, type=int, help="Number of epochs.")
@@ -42,7 +43,7 @@ class SinusoidalEmbedding(torch.nn.Module):
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         assert inputs.shape[-1] == 1
 
-        # TODO: Compute the sinusoidal embeddings of the inputs in `[0, 1]` range.
+        # TODO(flow_matching): Compute the sinusoidal embeddings of the inputs in `[0, 1]` range.
         # The `inputs` have shape `[..., 1]`, and the produced embeddings should have
         # shape `[..., self.dim]`, where for `0 <= i < self.dim/2`,
         # - the value on index `[..., i]` should be
@@ -56,7 +57,7 @@ class ResidualBlock(torch.nn.Module):
     """A residual block with two 3x3 convolutions and a time embedding."""
     def __init__(self, width: int) -> None:
         super().__init__()
-        # TODO: In the whole assignment, use _lazy_ convolutional and _lazy_
+        # TODO(flow_matching): In the whole assignment, use _lazy_ convolutional and _lazy_
         # linear layers. Furthermore, create the layers in the exact same order
         # as mentioned in the comment.
         #
@@ -82,7 +83,7 @@ class ResidualBlock(torch.nn.Module):
         ...
 
     def forward(self, images: torch.Tensor, times: torch.Tensor) -> torch.Tensor:
-        # TODO: Implement the forward pass of the residual block. The `times` has
+        # TODO(flow_matching): Implement the forward pass of the residual block. The `times` has
         # shape `[batch_size, channels]` with `channels` equal to the number of
         # `images` channels, so it must be broadcasted to every image position.
         raise NotImplementedError()
@@ -92,13 +93,13 @@ class DownscalingBlock(torch.nn.Module):
     """Downscaling block returning both the features of original and downscaled size."""
     def __init__(self, residual_blocks: int, width: int) -> None:
         super().__init__()
-        # TODO: The downscaling block starts with `residual_blocks` number of `ResidualBlock`s,
+        # TODO(flow_matching): The downscaling block starts with `residual_blocks` number of `ResidualBlock`s,
         # and then passes the result through a 3x3 convolution with `width << 1` channels,
         # stride 2, and padding 1.
         ...
 
     def forward(self, images: torch.Tensor, times: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        # TODO: Implement the forward pass of the downscaling block, returning a pair with
+        # TODO(flow_matching): Implement the forward pass of the downscaling block, returning a pair with
         # first the downscaled features followed by the output of the last residual block.
         raise NotImplementedError()
 
@@ -107,7 +108,7 @@ class UpscalingBlock(torch.nn.Module):
     """Upscaling block using a skip connection from the corresponding downscaling block."""
     def __init__(self, residual_blocks: int, width: int) -> None:
         super().__init__()
-        # TODO: The upscaling block starts with a transposed convolution with kernel size 4,
+        # TODO(flow_matching): The upscaling block starts with a transposed convolution with kernel size 4,
         # stride 2, and padding 1, which processes the input images. Then, the skip connection
         # from the downscaling block is passed through a 3x3 convolution with `width` channels
         # and the "same" padding. Finally, both results are added together and passed through
@@ -115,7 +116,7 @@ class UpscalingBlock(torch.nn.Module):
         ...
 
     def forward(self, images: torch.Tensor, skip_connections: torch.Tensor, times: torch.Tensor) -> torch.Tensor:
-        # TODO: Implement the forward pass of the upscaling block.
+        # TODO(flow_matching): Implement the forward pass of the upscaling block.
         raise NotImplementedError()
 
 
@@ -123,7 +124,7 @@ class UNet(torch.nn.Module):
     """The U-Net architecture used in the flow matching model."""
     def __init__(self, channels: int, stage_blocks: int, stages: int) -> None:
         super().__init__()
-        # TODO: When processing the input images and the input times, start by
+        # TODO(flow_matching): When processing the input images and the input times, start by
         # passing the times through the `SinusoidalEmbedding` layer with
         # dimension of `channels`; the result is then passed to all later layers
         # that require the time embedding.
@@ -145,8 +146,12 @@ class UNet(torch.nn.Module):
         #   `C` channels and the "same" padding.
         ...
 
-    def forward(self, images: torch.Tensor, times: torch.Tensor) -> None:
-        # TODO: Implement the forward pass of the U-Net.
+    def forward(self, images: torch.Tensor, conditioning: torch.Tensor, times: torch.Tensor) -> None:
+        # TODO: Implement the forward pass of the U-Net. Compared to the `flow_matching`
+        # assignment, you also need to process the `conditioning` by first upscaling it
+        # to the size of the input images using a `torch.nn.Upsample` layer, and then
+        # concatenating the input images and the upscaled conditioning along the channel
+        # dimension, in this order. The rest of the computation is unchanged.
         raise NotImplementedError()
 
 
@@ -154,7 +159,7 @@ class FlowMatching(npfl138.TrainableModule):
     """The model used for flow matching, capable of generating images."""
     def __init__(self, args: argparse.Namespace) -> None:
         super().__init__()
-        # TODO: Create the U-Net model with the required arguments.
+        # TODO(flow_matching): Create the U-Net model with the required arguments.
         self._model = UNet(...)
 
         self._ema_model = None  # We initialize the `self._ema_model` during the first update.
@@ -162,6 +167,7 @@ class FlowMatching(npfl138.TrainableModule):
         self._sigma_min = args.sigma_min
         self.register_buffer("imagenet_mean", torch.tensor([0.485, 0.456, 0.406]))
         self.register_buffer("imagenet_std", torch.tensor([0.229, 0.224, 0.225]))
+        self._downscale = args.downscale
 
     def normalize_image(self, image: torch.Tensor) -> torch.Tensor:
         """Method to normalize the input image to have a standard distribution."""
@@ -182,7 +188,7 @@ class FlowMatching(npfl138.TrainableModule):
         noises = torch.randn_like(images)
         times = torch.rand(images.shape[0], 1, device=images.device)
 
-        # TODO: Perform a training step.
+        # TODO(flow_matching): Perform a training step.
         # - Start by normalizing the input images using the `normalize_image` method.
         # - Then compute the noisy images used as the model input, using the normalized
         #   images, `noises`, and `times`.
@@ -190,33 +196,39 @@ class FlowMatching(npfl138.TrainableModule):
         # - Finally, compute the loss using the conditional flow matching objective,
         #   utilizing the given PyTorch loss stored in `self.loss`.
         # Once the forward pass is completed, compute the gradient of the loss.
+        # TODO: Compared to `flow_matching`, you need to also create the conditioning images
+        # by downscaling both the height and the width of the normalized input images
+        # by a factor of `self._downscale` using the `torch.nn.functional.avg_pool2d` method,
+        # and then passing the downscaled conditioning as one of the inputs to the network.
         ...
 
         with torch.no_grad():
             self.optimizer.step()
 
-            # TODO: If the EMA model is not initialized, create it as a copy of the current model
+            # TODO(flow_matching): If the EMA model is not initialized, create it as a copy of the current model
             # using `copy.deepcopy`. Also call `requires_grad_(False)` on the newly created model.
             if self._ema_model is None:
                 self._ema_model = ...
             for ema_variable, variable in zip(self._ema_model.parameters(), self._model.parameters()):
-                # TODO: Perform the exponential moving average, modifying the `ema_variable` in place
+                # TODO(flow_matching): Perform the exponential moving average, modifying the `ema_variable` in place
                 # by multiplying it by `self._ema_momentum` and adding the `variable` multiplied by
                 # `(1 - self._ema_momentum)`.
                 ...
             return {"loss": self.loss_tracker(loss)}
 
     @torch.no_grad()
-    def generate(self, initial_noise: torch.Tensor, steps: int) -> torch.Tensor:
+    def generate(self, initial_noise: torch.Tensor, conditioning: torch.Tensor, steps: int) -> torch.Tensor:
         images = initial_noise.to(self.device)
         trajectory = []
 
-        # TODO: Perform the sampling process using the `self._ema_model` and the
+        # TODO(flow_matching): Perform the sampling process using the `self._ema_model` and the
         # Euler method (the one described on the slides) and `steps` number of steps.
         # You should compute:
         # - `images`, which are the final generated images, and
         # - `trajectory`, which is a list of the intermediate images x_0, x_{1/T}, ...,
         #   i.e., all the inputs you passed to the model during this method.
+        # TODO: Compared to `flow_matching`, you need to normalize the given `conditioning`
+        # (using the `normalize_image` method) and then pass it to every `_ema_model` call.
 
         # Apply the denormalization to the generated images and the trajectory.
         return self.denormalize_image(images), list(map(self.denormalize_image, trajectory))
@@ -230,8 +242,8 @@ class TrainableDataset(npfl138.TransformedDataset):
 
 
 class FixedNumberOfSamples(torch.utils.data.Sampler):
-    def __init__(self, size: int, samples: int, seed: int) -> None:
-        self._size, self._samples, self._permutation = size, samples, []
+    def __init__(self, offset: int, size: int, samples: int, seed: int) -> None:
+        self._offset, self._size, self._samples, self._permutation = offset, size - offset, samples, []
         self._generator = torch.Generator().manual_seed(seed)
 
     def __len__(self):
@@ -240,7 +252,7 @@ class FixedNumberOfSamples(torch.utils.data.Sampler):
     def __iter__(self):
         for _ in range(self._samples):
             self._permutation = self._permutation or torch.randperm(self._size, generator=self._generator).tolist()
-            yield self._permutation[0]
+            yield self._offset + self._permutation[0]
             self._permutation = self._permutation[1:]
 
 
@@ -258,8 +270,14 @@ def main(args: argparse.Namespace) -> dict[str, float]:
 
     # Load the image data.
     images64 = Image64Dataset(args.dataset)
-    train = TrainableDataset(images64.train).dataloader(args.batch_size, sampler=FixedNumberOfSamples(
-        len(images64.train), args.batch_size * args.epoch_batches, args.seed))
+    train = TrainableDataset(images64.train)
+    dev = torch.stack([train[i][0] for i in range(80)])  # Keep the first 80 images aside.
+    train = train.dataloader(args.batch_size, sampler=FixedNumberOfSamples(
+        80, len(images64.train), args.batch_size * args.epoch_batches, args.seed))
+
+    # TODO: Use `torch.nn.functional.avg_pool2d` to downscale both the height and the width
+    # of the `dev` images by the `args.downscale` factor, and store the result as `conditioning`.
+    conditioning = ...
 
     # Create the model.
     flow_matching = FlowMatching(args)
@@ -273,20 +291,29 @@ def main(args: argparse.Namespace) -> dict[str, float]:
                 rows, columns, Image64Dataset.C, Image64Dataset.H, Image64Dataset.W,
                 generator=torch.Generator().manual_seed(seed)
             )
+            self._dev = dev.tensor_split(list(range(columns, len(dev), columns)))
+            self._c = conditioning.tensor_split(list(range(columns, len(conditioning), columns)))
 
         @torch.no_grad()
         def __call__(self, model, epoch, logs) -> None:
             # After the last epoch and every `args.plot_each` epoch, generate a sample to TensorBoard logs.
             if epoch == args.epochs or epoch % (args.plot_each or args.epochs) == 0:
-                # Generate a grid of `self._columns *  self._rows` independent samples.
-                rows = [model.generate(noise, args.sampling_steps)[0] for noise in list(self._noise)]
-                images = torch.cat([torch.cat(list(row), dim=-1) for row in rows], dim=-2)
+                # Generate a `self._rows // 2` independent samples with conditioning.
+                rows = range(self._rows // 2)
+                samples = [model.generate(self._noise[r], self._c[r], args.sampling_steps)[0].cpu() for r in rows]
+                images = torch.cat([line for lines in zip(
+                    [torch.cat(list(torch.nn.Upsample(scale_factor=args.downscale)(self._c[r])), -1) for r in rows],
+                    [torch.cat(list(row), -1) for row in samples]) for line in lines], -2)
                 model.get_tb_writer("train").add_image("images", images, epoch)
-                # Generate gradual denoising process for `rows` samples, showing `self._columns` steps.
-                steps = max(1, args.sampling_steps // (self._columns - 1))
-                samples, process = model.generate(self._noise[:, 0], steps * (self._columns - 1))
-                process = torch.cat([torch.cat(list(col), dim=-2) for col in process[::steps] + [samples]], dim=-1)
-                model.get_tb_writer("train").add_image("process", process, epoch)
+                # For each of `self._columns *  self._rows // 5` conditionings, generate 3 different samples.
+                rows = range(self._rows // 5)
+                samples = [[model.generate(self._noise[3 * r + i], self._c[r], args.sampling_steps)[0].cpu()
+                            for i in range(3)] for r in rows]
+                variants = torch.cat([line for lines in zip(
+                    [torch.cat(list(self._dev[r]), -1) for r in rows],
+                    [torch.cat(list(torch.nn.Upsample(scale_factor=args.downscale)(self._c[r])), -1) for r in rows],
+                    [torch.cat([torch.cat(list(v), -1) for v in s], -2) for s in samples]) for line in lines], -2)
+                model.get_tb_writer("train").add_image("variants", variants, epoch)
             # After the last epoch, store statistics of the generated sample for ReCodEx to evaluate.
             if epoch == args.epochs:
                 images = images.numpy(force=True)
