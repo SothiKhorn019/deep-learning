@@ -1,3 +1,2 @@
 - Update package: `VENV_DIR/bin/pip install --upgrade npfl138`
 - Activate virtual env: `source VENV_DIR/bin/activate`
-- 
