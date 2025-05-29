@@ -193,11 +193,11 @@
 
 - Draw the CBOW architecture from `word2vec`, including the sizes of the inputs
   and the sizes of the outputs and used non-linearities. Also make sure to
-  indicate where the embeddings are being trained. [5]
+  explain how to obtain the final embeddings after training. [5]
 
 - Draw the SkipGram architecture from `word2vec`, including the sizes of the
   inputs and the sizes of the outputs and used non-linearities. Also make sure
-  to indicate where the embeddings are being trained. [5]
+  to explain how to obtain the final embeddings after training. [5]
 
 - Describe the hierarchical softmax used in `word2vec`. [5]
 
@@ -381,7 +381,9 @@
 
 - Describe the overall architecture of the Tacotron 2 architecture, including
   the description of the encoder, formula for the location-sensitive attention,
-  and the description of the decoder. What is the loss minimized during training? [10]
+  and the description of the decoder. (How exactly is one step of the decoder
+  performed? How exactly is post-net used? Why does the decoder has two outputs?)
+  What is the loss minimized during training? [10]
 
 - Sketch the FastSpeech architecture, and describe what duration predictor
   is and how it is used during computation. What is the advantage of this
